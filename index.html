@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Find My Location</title>
+	<meta name="keywords" content="mylocation, whereami, location, findmylocation">
+  	<meta name="description" content="Find my location, Where am i">
+	<style type="text/css">
+		#map{width: 100vw; height: 90vh;}
+		#container{text-align: center; border-top: 20pt; padding: 10pt;}
+	</style>
+	<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCxAQqK15rHECTgZ498XxDKW2OTu-Shup8"></script>
+	<script src="https://apis.google.com/js/client:platform.js?key=AIzaSyCxAQqK15rHECTgZ498XxDKW2OTu-Shup8" async defer></script>
+	<script type="text/javascript">
+		
+		function MapRenderer(profile){
+			this.profile = profile;
+
+			this.render = function(){
+				if(navigator.geolocation){
+					var timeoutValue = 10*1000*1000;
+					navigator.geolocation.getCurrentPosition(displayPosition, displayError, 
+														{enableHighAccuracy : true, timeout : timeoutValue, maximumAge : 0}
+					);
+				}else{
+					alert("geolocation is not supported by this browser");
+				}
+			}
+
+			function displayPosition(position){
+				console.log(position.coords.latitude);
+				console.log(position.coords.longitude);
+				console.log('Retrieved profile for :  ' + profile.result.displayName);
+				var pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+				var options = {
+					zoom: 15,
+					center: pos,
+					mapTypeId: google.maps.MapTypeId.ROADMAP
+				};
+				var map = new google.maps.Map(document.getElementById("map"), options);
+				var marker = new google.maps.Marker({
+					position: pos,
+			 		map: map,
+			 		title: profile.result.displayName
+			 	});
+			 	updateMarker(pos, position, profile.result.displayName, map, marker);
+			}
+
+			function updateMarker(latLng, position, userId, map, marker){
+				var geocoder = new google.maps.Geocoder();
+				geocoder.geocode({"latLng": latLng}, function(results, status){
+					var address = "Not defined"
+					if (status == google.maps.GeocoderStatus.OK) {
+						if (results[0]) {
+							address = results[0].formatted_address;
+						}else{
+							console.log("No results found");
+						}
+					}else{
+						console.log("reverse GeocoderStatus : "+ status);
+					}
+
+					var contentString = "<b>User Name :</b> " + userId + " <br/><b> latitude : </b>"+ position.coords.latitude +" <br/><b>longitude : </b>"+position.coords.longitude + " <br/><b>accuracy : </b> " + position.coords.accuracy + " <br/><b>Address : </b>"+ address;
+					var infowindow = new google.maps.InfoWindow({
+			 			content: contentString
+					});
+					google.maps.event.addListener(marker, 'click', function() {
+			 			infowindow.open(map,marker);
+					});
+				});
+			}
+
+			function displayError(error){
+				var errors = { 
+					1: 'Permission denied',
+					2: 'Position unavailable',
+					3: 'Request timeout'
+				};
+				alert("Error: " + errors[error.code]);
+			}
+		}
+		
+		function signinCallback(authResult) {
+        	if (authResult['status']['signed_in']) {
+            	document.getElementById('container').setAttribute('style', 'display: none');
+            	document.getElementById('signout').setAttribute('style', 'display: show');
+            	document.getElementById('map').setAttribute('style', 'display: show');
+            	makeApiCall();
+        	} else {
+            	console.log('Sign-in state: ' + authResult['error']);
+            	document.getElementById('container').setAttribute('style', 'display: show');
+            	document.getElementById('signout').setAttribute('style', 'display: none');
+            	document.getElementById('map').setAttribute('style', 'display: none');
+        	}
+    	}
+
+    	function makeApiCall(){
+    		gapi.client.load('plus', 'v1').then(function(){
+    			var request = gapi.client.plus.people.get({
+    				'userId' : 'me'
+    			});
+    			request.then(function(resp){
+    				var renderer = new MapRenderer(resp);
+    				renderer.render();
+    			}, function(reason){
+    				console.log("Error : "+reason.result.error.message);
+    			});
+    		});
+    	}
+
+    	function signOut(){
+    		gapi.auth.signOut();
+    	}
+	</script>
+</head>
+<body>
+	<div id="container">
+		<div id="container">
+			Welcome to FindMyLocation app. Sign in to know your current location
+		</div>
+        <button
+        	class="g-signin"
+        	data-callback="signinCallback"
+        	data-clientid="250818887888-pmc1t683egpmf4p2k21dqa47q5t9vh2g.apps.googleusercontent.com"
+        	data-cookiepolicy="single_host_origin"
+        	data-scope="profile"
+        	data-width="wide"
+        	data-theme="dark"
+        	data-height="tall">
+        </button>
+	</div>
+	<div id = "map"></div>
+	<div id="signout" >
+		<button onclick="signOut();">signout</button> 
+	</div>
+</body>
+</html>
